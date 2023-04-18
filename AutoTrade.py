@@ -3,9 +3,6 @@ import pyupbit
 import datetime
 import numpy as np
 
-access = "YxVrdqxu8DLAPibitVxoxRr7D9SRxGZxrgxJQ76f"
-secret = "F2T3Z5CuuYv9JL7KdYTDVaxFrX3pLKneexlndw3W"
-
 def get_target_price(ticker, k):
     """변동성 돌파 전략으로 매수 목표가 조회"""
     df = pyupbit.get_ohlcv(ticker, interval="day", count=2)
@@ -60,8 +57,18 @@ def get_optimal_k():
     return optimal_k
 
 # 로그인
-upbit = pyupbit.Upbit(access, secret)
-print("autotrade start")
+with open("api_key.txt") as f:
+    lines = f.readlines()
+    access = lines[0].strip()
+    secret = lines[1].strip()
+    upbit = pyupbit.Upbit(access, secret)
+    print("autotrade start")
+
+# 초기값 설정
+investment = get_balance("KRW") * 0.01 # 초기 투자 금액
+shares = investment / get_current_price("KRW-XRP")  # 초기 주식 수
+price = get_current_price("KRW-XRP")  # 초기 주식 가격
+losses = 0  # 초기 손실 금액
 
 # 자동매매 시작
 while True:
@@ -70,12 +77,37 @@ while True:
         start_time = get_start_time("KRW-XRP")
         end_time = start_time + datetime.timedelta(days=1)
 
+        # 주식 매수
+        investment = investment + losses  # 이전 거래에서 발생한 손실을 더함
+        shares_to_buy = investment / price  # 주식 매수 수량 계산
+        shares += shares_to_buy  # 주식 수량 추가
+        investment = shares * price  # 새로운 투자 금액 계산
+        print('Bought', shares_to_buy, 'shares at', price, 'per share')
+        
+        # 주식 가격 변동 시뮬레이션
+        price_change = get_current_price("KRW-XRP") - price  # 가격 변동 계산
+        price = get_current_price("KRW-XRP")  # 가격 업데이트
+        investment = shares * price  # 투자 금액 업데이트
+
+        # 이익 또는 손실 계산
+        if price_change > 0:
+            print('Profit of', price_change * shares, 'on this trade')
+            losses = 0  # 손실 초기화
+        else:
+            print('Loss of', price_change * shares, 'on this trade')
+            losses = investment * 2  # 이전 거래에서 발생한 손실의 두 배를 다음 거래에서 투자
+
+        # 거래 중단 조건
+        if investment <= 0:
+            print('Investment depleted. Exiting trading.')
+            break
+
         if start_time < now < end_time - datetime.timedelta(seconds=10):
             target_price = get_target_price("KRW-XRP", get_optimal_k)
             current_price = get_current_price("KRW-XRP")
             if target_price < current_price:
                 krw = get_balance("KRW")
-                if krw > 5000:
+                if krw > 45000:
                     upbit.buy_market_order("KRW-XRP", krw*0.9995)
         else:
             xrp = get_balance("XRP")
