@@ -85,8 +85,8 @@ def martingale_buy(investment, shares, price, losses):
     return investment, shares, price, losses
 
 def run_martingale_buy():
-    global investment, losses, shares, price, losses
-    investment, losses, shares, price, losses = martingale_buy(investment, losses, shares, price)
+    global investment, shares, price, losses
+    investment, shares, price, losses = martingale_buy(investment, shares, price, losses)
 
 # 로그인
 with open("api_key.txt") as f:
